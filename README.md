@@ -2,6 +2,12 @@
 
 Allows you to save and edit ServiceNow records from Visual Studio Code.
 
+## Forked from salcosta's vsc-servicenow-sync
+[Salcosta's ServiceNow sync ](https://github.com/salcosta/vsc-servicenow-sync)
+- Added 'Set Update Set' functionality
+- Changed 'Set Scope' to also update website
+Note: When changing Update Set or Scope, already opened browser sessions will show the previously selected Update Set or Scope. 
+
 ## Installation
 
 [Visual Studio Code Market Place: ServiceNow Sync](https://marketplace.visualstudio.com/items?itemName=anerrantprogrammer.servicenow-sync)

@@ -1,15 +1,15 @@
 {
-  "name": "servicenow-sync",
-  "author": "Sal Costa <costas0811@hotmail.com> (http://anerrantprogrammer.com",
-  "displayName": "ServiceNow Sync",
+  "name": "servicenow-sync-forked",
+  "author": "Nicolai Knudsen",
+  "displayName": "ServiceNow Sync (forked)",
   "description": "Sync records from ServiceNow to local files using VSC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/salcosta/vsc-servicenow-sync.git"
+    "url": "https://github.com/nicolaiwork/vsc-servicenow-sync.git"
   },
-  "version": "0.2.3",
+  "version": "0.2.3.2",
   "license": "MIT",
-  "publisher": "anerrantprogrammer",
+  "publisher": "NicolaiKnudsen",
   "engines": {
     "vscode": "^1.18.0"
   },
