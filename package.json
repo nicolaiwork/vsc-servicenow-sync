@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/nicolaiwork/vsc-servicenow-sync.git"
   },
-  "version": "0.2.3.2",
+  "version": "0.2.4",
   "license": "MIT",
   "publisher": "NicolaiKnudsen",
   "engines": {
