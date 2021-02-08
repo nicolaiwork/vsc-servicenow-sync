@@ -24,6 +24,8 @@ var ServiceNowSync = (function () {
         subscriptions.push(vscode.commands.registerCommand('sn_sync.compareFile', this.compareFile, this));
         subscriptions.push(vscode.commands.registerCommand('sn_sync.evalScript', this.evalCurrentFile, this));
         subscriptions.push(vscode.commands.registerCommand('sn_sync.updateScope', this.updateScope, this));
+        subscriptions.push(vscode.commands.registerCommand('sn_sync.setUpdateSet', this.setUpdateSet, this));
+
 
         vscode.workspace.onWillSaveTextDocument(this.pushFile, this, subscriptions);
 
@@ -197,19 +199,42 @@ var ServiceNowSync = (function () {
 
         this.listRecords("sys_app", "sys_id,name", "scope!=global", function (result) {
             if (result) {
-                records = result;
                 let quickPickItems = _.map(result, function (obj) {
                     return {
                         "detail": obj.sys_id,
                         "label": obj.name
                     };
                 });
-                quickPickItems.unshift({ "detail": "rhino.global", "label": "Global" });
+                quickPickItems.unshift({ "detail": "global", "label": "Global" });
                 vscode.window.showQuickPick(quickPickItems).then(function (selected) {
                     _this._updateScope(selected.detail);
                 });
             } else {
                 vscode.window.setStatusBarMessage(' Scopes could not be loaded ...', 2000);
+            }
+        });
+    }
+
+    ServiceNowSync.prototype.setUpdateSet = function () {
+        var _this = this;
+        var rootSettings = _this.getRootSettings();
+
+        this.listRecords("sys_update_set", "sys_id,name", `state=in progress^application=${rootSettings.scope}` , function (result) {
+            if (result) {
+                let quickPickItems = _.map(result, function (obj) {
+                    return {
+                        "detail": obj.sys_id,
+                        "label": obj.name
+                    };
+                });
+                vscode.window.showQuickPick(quickPickItems).then(function (selected) {
+                    _this._updateUserPreference("sys_update_set", selected.detail);
+                    _this._updateUserPreference("updateSetForScopeglobal", selected.detail, function() {
+                        vscode.window.setStatusBarMessage(` Update set changed to: ${selected.label}`, 5000);
+                    });
+                });
+            } else {
+                vscode.window.setStatusBarMessage(' Update sets could not be loaded ...', 2000);
             }
         });
     }
@@ -277,7 +302,7 @@ var ServiceNowSync = (function () {
                         "url": url,
                         "username": username,
                         "password": password,
-                        "scope": "rhino.global"
+                        "scope": "global"
                     });
                 });
             });
@@ -378,6 +403,24 @@ var ServiceNowSync = (function () {
         rootSettings.scope = scope;
 
         _this.writeSettings(rootFolder, rootSettings);
+        _this._updateUserPreference("apps.current_app", scope);
+    }
+
+    ServiceNowSync.prototype._updateUserPreference = function (name, value, callback) {
+        let _this = this;
+        let rootSettings = _this.getRootSettings();
+
+        this.getRecordByQuery( {table: "sys_user_preference"}, `name=${name}&user=${rootSettings.user_id}`, function(result) {
+            if (result != null && result.length > 0) {
+                let result_sys_id = result[0].sys_id;
+
+                _this.updateRecord({table: "sys_user_preference", field: "value"}, result_sys_id, value, function(){
+                    if (callback && typeof callback === "function") {
+                        callback();
+                    }
+                });
+            }
+        });
     }
 
     ServiceNowSync.prototype._updateProxy = function (proxySettings) {
@@ -399,11 +442,17 @@ var ServiceNowSync = (function () {
         let rootFolder = vscode.workspace.workspaceFolders[0].uri._fsPath;
         let settings = {
             "instance": params.url,
-            "auth": "Basic " + new Buffer.from(params.username + ':' + params.password).toString('base64')
+            "auth": "Basic " + new Buffer.from(params.username + ':' + params.password).toString('base64'),
+            "scope": params.scope
         };
 
         _this.writeSettings(rootFolder, settings)
 
+        this.getRecordByQuery( {table: "sys_user"}, "user_name=" + params.username, function(result) {
+            settings.user_id = result[0].sys_id;
+
+            _this.writeSettings(rootFolder, settings)
+        });
     };
 
     ServiceNowSync.prototype.syncTable = function () {
@@ -778,6 +827,16 @@ var ServiceNowSync = (function () {
 
     };
 
+    ServiceNowSync.prototype.getRecordByQuery = function (settings, query, cb) {
+        let _this = this;
+        let options = _this.createRequest(settings.table)
+
+        options.url = options.url + '?' + query;
+
+        _this.executeRequest(options, cb);
+
+    };
+
     ServiceNowSync.prototype.updateRecord = function (settings, sys_id, file, cb) {
         let _this = this;
         let options = _this.createRequest(settings.table)
@@ -786,6 +845,29 @@ var ServiceNowSync = (function () {
         options.method = "PATCH";
         options.json = {};
         options.json[settings.field] = file;
+
+        _this.executeRequest(options, cb);
+
+    };
+
+    ServiceNowSync.prototype.deleteRecord = function (settings, sys_id, cb) {
+        let _this = this;
+        let options = _this.createRequest(settings.table)
+
+        options.url = options.url + '/' + sys_id;
+        options.method = "DELETE";
+
+        _this.executeRequest(options, cb);
+
+    };
+
+    ServiceNowSync.prototype.insertRecord = function (settings, object, cb) {
+        let _this = this;
+        let options = _this.createRequest(settings.table)
+
+        options.url = options.url;
+        options.method = "POST";
+        options.data = JSON.stringify(object);
 
         _this.executeRequest(options, cb);
 
@@ -811,18 +893,30 @@ var ServiceNowSync = (function () {
         function parseResults(error, response, body) {
             queryMessage.dispose();
             // vscode.window.setStatusBarMessage('', 0);
-            if (!error && response.statusCode == 200) {
+            if (!error) {
                 let results = body;
-                if (typeof body !== 'object') {
-                    results = JSON.parse(body);
+
+                if (response.statusCode == 200) {
+                    if (typeof body !== 'object') {
+                        results = JSON.parse(body);
+                    }
+
+                    if (typeof results.result !== 'undefined') {
+                        results = results.result;
+                    }
+                    cb(results);
                 }
 
-                if (typeof results.result !== 'undefined') {
-                    results = results.result;
+                if (response.statusCode == 201){
+                    results = "Inserted";
+                    cb(results);
                 }
-
-                cb(results);
-            } else {
+                if (response.statusCode == 204){
+                    results = "Deleted";
+                    cb(results);
+                }
+            } 
+            else {
                 vscode.window.showErrorMessage('Error 0161:' + error);
             }
 

@@ -56,7 +56,6 @@
         "command": "sn_sync.enterProxySettings",
         "title": "SN Sync: Enter Proxy Settings"
       },
-
       {
         "command": "sn_sync.syncRecord",
         "title": "SN Sync: Sync Record"
@@ -72,6 +71,10 @@
       {
         "command": "sn_sync.updateScope",
         "title": "SN Sync: Set Scope"
+      },
+      {
+        "command": "sn_sync.setUpdateSet",
+        "title": "SN Sync: Set Update Set"
       },
       {
         "command": "sn_sync.compareFile",
