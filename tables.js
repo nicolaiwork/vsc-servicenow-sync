@@ -437,7 +437,7 @@ module.exports = {
         "extension": "html"
     }, {
         "field": "css",
-        "extension": "css"
+        "extension": "scss"
     }, {
         "field": "link",
         "extension": "js"
